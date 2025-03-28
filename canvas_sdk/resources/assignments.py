@@ -1,29 +1,60 @@
 from .base import BaseResource
+from typing import List, Dict, Any, Optional
+from datetime import datetime
 
 class Assignments(BaseResource):
     """Interface to the Canvas Assignments API."""
     
-    def list(self, course_id, include=None, **kwargs):
-        """List assignments in a course.
+    def _get_item_id(self, item_id):
+        """Convert item_id to string if needed."""
+        return str(item_id) if item_id is not None else None
+
+    def list(
+        self,
+        course_id: str,
+        include: List[str] = None,
+        page: int = None,
+        per_page: int = None,
+        order_by: str = None,
+        bucket: str = None
+    ) -> Dict[str, Any]:
+        """List assignments with pagination support.
         
         Args:
             course_id: The course ID
-            include (list, optional): Additional information to include
-            **kwargs: Additional parameters to pass to the API
+            include: Additional fields to include
+            page: Page number to fetch
+            per_page: Number of items per page
+            order_by: Field to order by (due_at, position, name)
+            bucket: Filter by bucket (past, overdue, undated, ungraded, upcoming, future)
             
         Returns:
-            list: List of assignments
+            Dict containing assignments and pagination info
         """
         course_id = self._get_item_id(course_id)
-        
-        params = kwargs.get('params', {})
+        params = {}
         
         if include:
-            params['include'] = include if isinstance(include, str) else ','.join(include)
+            params["include[]"] = include
             
-        kwargs['params'] = params
+        if page is not None:
+            params["page"] = page
+            
+        if per_page is not None:
+            params["per_page"] = per_page
+            
+        if order_by:
+            params["order_by"] = order_by
+            
+        if bucket:
+            params["bucket"] = bucket
+            
+        assignments = list(self.client.paginate(
+            f"courses/{course_id}/assignments",
+            params=params
+        ))
         
-        return list(self.client.paginate(f'courses/{course_id}/assignments', **kwargs))
+        return {"assignments": assignments}
     
     def get(self, course_id, assignment_id, include=None, **kwargs):
         """Get a single assignment.
